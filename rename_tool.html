@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>商品画像リネームツール</title>
+<style>
+:root {
+  --bg: #F2F1EE;
+  --surface: #FFFFFF;
+  --primary: #243D5C;
+  --primary-light: #2E5080;
+  --accent: #3A7D5E;
+  --accent-light: #EBF5EF;
+  --border: #D8D4CE;
+  --text: #1A1A1C;
+  --text-muted: #706C67;
+  --warn-bg: #FEF9EC;
+  --warn-border: #E8C840;
+  --warn-text: #6B5200;
+  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  --mono: 'SF Mono', 'Consolas', 'Monaco', monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font); background: var(--bg); color: var(--text); min-height: 100vh; }
+
+/* Header */
+.header {
+  background: var(--primary);
+  padding: 16px 36px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.header-mark {
+  width: 34px; height: 34px;
+  background: rgba(255,255,255,0.15);
+  border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 17px;
+}
+.header h1 { font-size: 15px; font-weight: 600; color: white; letter-spacing: -0.01em; }
+.header-note { margin-left: auto; font-size: 12px; color: rgba(255,255,255,0.45); }
+
+/* Steps */
+.steps-bar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 36px;
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+}
+.step-tab {
+  display: flex; align-items: center; gap: 9px;
+  padding: 16px 16px 16px 0;
+  opacity: 0.35;
+  transition: opacity 0.2s;
+  position: relative;
+}
+.step-tab.active { opacity: 1; }
+.step-tab.done { opacity: 0.65; }
+.step-tab + .step-tab::before {
+  content: '';
+  display: block;
+  width: 20px; height: 1px;
+  background: var(--border);
+  margin-right: 12px;
+}
+.step-num {
+  width: 24px; height: 24px; border-radius: 50%;
+  background: var(--border); color: var(--text-muted);
+  font-size: 11px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; transition: background 0.2s, color 0.2s;
+}
+.step-tab.active .step-num { background: var(--primary); color: white; }
+.step-tab.done .step-num { background: var(--accent); color: white; }
+.step-name { font-size: 13px; font-weight: 500; white-space: nowrap; }
+
+/* Layout */
+.main { max-width: 660px; margin: 44px auto 80px; padding: 0 20px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 40px; }
+.card-title { font-size: 19px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 7px; }
+.card-desc { font-size: 13.5px; color: var(--text-muted); line-height: 1.65; margin-bottom: 30px; }
+code { background: #EEECE8; padding: 2px 6px; border-radius: 4px; font-family: var(--mono); font-size: 12px; }
+
+/* Drop zone */
+.drop-area {
+  border: 2px dashed var(--border);
+  border-radius: 11px;
+  padding: 46px 28px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  background: var(--bg);
+}
+.drop-area:hover { border-color: var(--primary); background: #EEF3FA; }
+.drop-area.over { border-color: var(--primary); background: #EEF3FA; }
+.drop-area.ok { border-color: var(--accent); border-style: solid; background: var(--accent-light); }
+.drop-icon { font-size: 38px; margin-bottom: 10px; display: block; }
+.drop-text { font-size: 14.5px; font-weight: 600; margin-bottom: 4px; }
+.drop-sub { font-size: 13px; color: var(--text-muted); }
+.drop-ok { display: none; align-items: center; justify-content: center; gap: 12px; }
+.drop-area.ok .drop-prompt { display: none; }
+.drop-area.ok .drop-ok { display: flex; }
+.ok-badge {
+  width: 38px; height: 38px; border-radius: 50%;
+  background: var(--accent); color: white;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 18px; flex-shrink: 0;
+}
+.ok-name { font-size: 14px; font-weight: 600; text-align: left; }
+.ok-sub { font-size: 12.5px; color: var(--text-muted); }
+
+/* Folder button */
+.folder-pick {
+  width: 100%;
+  border: 2px dashed var(--border);
+  border-radius: 11px;
+  padding: 46px 28px;
+  background: var(--bg);
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: var(--font);
+  display: block;
+}
+.folder-pick:hover { border-color: var(--primary); background: #EEF3FA; }
+.folder-pick.ok { border-color: var(--accent); border-style: solid; background: var(--accent-light); }
+
+/* Group table */
+.tbl { width: 100%; border-collapse: collapse; }
+.tbl th {
+  text-align: left; font-size: 11px; font-weight: 600;
+  letter-spacing: 0.07em; text-transform: uppercase;
+  color: var(--text-muted); padding: 0 14px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.tbl td { padding: 13px 14px; border-bottom: 1px solid var(--border); font-size: 13.5px; }
+.tbl tr:last-child td { border-bottom: none; }
+.badge {
+  display: inline-block; font-size: 11px; font-weight: 600;
+  padding: 2px 8px; border-radius: 4px;
+  background: #E6EDF7; color: var(--primary);
+}
+.badge.trade { background: #FDF0E0; color: #A0621A; }
+.num-in {
+  width: 78px; padding: 8px 10px;
+  border: 1px solid var(--border); border-radius: 6px;
+  font-family: var(--mono); font-size: 14px; text-align: center;
+  outline: none; transition: border-color 0.15s, box-shadow 0.15s;
+  font-variant-numeric: tabular-nums;
+}
+.num-in:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(36,61,92,0.1); }
+
+/* Buttons */
+.btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 11px 22px; border-radius: 8px;
+  font-family: var(--font); font-size: 13.5px; font-weight: 600;
+  cursor: pointer; border: none; transition: all 0.15s;
+}
+.btn-primary { background: var(--primary); color: white; }
+.btn-primary:hover { background: var(--primary-light); }
+.btn-primary:disabled { opacity: 0.35; cursor: not-allowed; }
+.btn-ghost { background: var(--bg); color: var(--text); border: 1px solid var(--border); }
+.btn-ghost:hover { background: var(--border); }
+.btn-green { background: var(--accent); color: white; }
+.btn-green:hover { background: #2E6348; }
+.actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 30px; }
+
+/* Stats */
+.stats { display: flex; gap: 28px; background: var(--bg); border-radius: 10px; padding: 20px 24px; margin-bottom: 20px; }
+.stat-n { font-size: 30px; font-weight: 700; letter-spacing: -0.03em; color: var(--primary); font-variant-numeric: tabular-nums; }
+.stat-l { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+/* Result list */
+.res-list { max-height: 300px; overflow-y: auto; border: 1px solid var(--border); border-radius: 9px; }
+.res-item {
+  display: grid; grid-template-columns: 20px 1fr auto 1fr;
+  align-items: center; gap: 8px;
+  padding: 9px 14px; border-bottom: 1px solid var(--border);
+  font-size: 12.5px;
+}
+.res-item:last-child { border-bottom: none; }
+.res-check { color: var(--accent); font-size: 13px; }
+.res-from { font-family: var(--mono); color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.res-arrow { color: var(--border); font-size: 11px; text-align: center; }
+.res-to { font-family: var(--mono); font-weight: 600; color: var(--primary); }
+
+/* Warning */
+.warn { background: var(--warn-bg); border: 1px solid var(--warn-border); border-radius: 8px; padding: 12px 16px; font-size: 12.5px; color: var(--warn-text); margin-top: 14px; line-height: 1.6; }
+
+/* Page visibility */
+.page { display: none; }
+.page.on { display: block; }
+input[type=file] { display: none; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-mark">📦</div>
+  <h1>商品画像リネームツール</h1>
+  <div style="margin-left:auto;display:flex;align-items:center;gap:16px">
+    <button id="rule-btn" onclick="toggleRules()" style="background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.2);color:white;font-family:var(--font);font-size:12px;font-weight:600;padding:6px 14px;border-radius:6px;cursor:pointer;transition:background 0.15s">📋 ファイル名ルール</button>
+    <span class="header-note">Chrome / Edge 推奨</span>
+  </div>
+</div>
+
+<!-- Rules panel -->
+<div id="rules-panel" style="display:none;background:var(--surface);border-bottom:2px solid var(--primary);box-shadow:0 4px 16px rgba(0,0,0,0.08)">
+  <div style="max-width:660px;margin:0 auto;padding:28px 20px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px">
+      <div style="font-size:15px;font-weight:700;letter-spacing:-0.01em">ファイル名のルール</div>
+      <button onclick="toggleRules()" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:18px;line-height:1;padding:4px">✕</button>
+    </div>
+
+    <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px">実写画像のファイル名は以下の形式にしてください。</p>
+    <div style="background:var(--bg);border-radius:7px;padding:10px 16px;font-family:var(--mono);font-size:13px;margin-bottom:22px;color:var(--primary);font-weight:600">品番_種別_連番.拡張子</div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+      <div>
+        <div style="font-size:12px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px">種別の書き方</div>
+        <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;font-size:12.5px">
+          <div style="display:grid;grid-template-columns:auto 1fr;background:var(--bg);padding:7px 12px;font-weight:600;color:var(--text-muted);font-size:11px;letter-spacing:0.04em;text-transform:uppercase;border-bottom:1px solid var(--border);gap:12px">
+            <span>画像の内容</span><span>ファイル名の例</span>
+          </div>
+          <div style="display:grid;grid-template-columns:auto 1fr;padding:9px 12px;border-bottom:1px solid var(--border);gap:12px;align-items:center">
+            <span style="white-space:nowrap">個別画像</span><code>MOB0001_個別_01.jpg</code>
+          </div>
+          <div style="display:grid;grid-template-columns:auto 1fr;padding:9px 12px;border-bottom:1px solid var(--border);background:var(--bg);gap:12px;align-items:center">
+            <div style="white-space:nowrap">全員集合<br><span style="font-size:11px;color:var(--text-muted)">代表品番1つ</span></div>
+            <code>MOB0001_全員集合_01.jpg</code>
+          </div>
+          <div style="display:grid;grid-template-columns:auto 1fr;padding:9px 12px;gap:12px;align-items:center">
+            <div style="white-space:nowrap">セット集合<br><span style="font-size:11px;color:var(--text-muted)">対象品番を全て列挙</span></div>
+            <code style="font-size:11px">MOB0001_MOB0002_MOB0003_セット集合_01.jpg</code>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div style="font-size:12px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px">連番の割り当て順</div>
+        <ol style="margin-left:18px;font-size:13px;line-height:2;margin-bottom:20px">
+          <li>全員集合</li>
+          <li>セット集合</li>
+          <li>個別</li>
+        </ol>
+        <p style="font-size:12px;color:var(--text-muted);line-height:1.6;margin-bottom:20px">撮影時の連番（_01など）はツールが無視するため、自由につけて構いません。</p>
+
+        <div style="font-size:12px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px">注意事項</div>
+        <ul style="margin-left:16px;font-size:12.5px;color:var(--text-muted);line-height:2">
+          <li>品番は在庫管理表の「品番」列と完全一致させてください</li>
+          <li>全員集合・セット集合は各JANコード分に自動複製されます</li>
+          <li>ファイル名にスペースを入れないでください</li>
+          <li>対応拡張子：jpg / jpeg / png / tif / tiff</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="steps-bar">
+  <div class="step-tab active" id="st1"><div class="step-num">1</div><div class="step-name">在庫管理表</div></div>
+  <div class="step-tab" id="st2"><div class="step-num">2</div><div class="step-name">撮影フォルダ</div></div>
+  <div class="step-tab" id="st3"><div class="step-num">3</div><div class="step-name">開始番号</div></div>
+  <div class="step-tab" id="st4"><div class="step-num">✓</div><div class="step-name">完了</div></div>
+</div>
+
+<div class="main">
+
+  <!-- PAGE 1 -->
+  <div class="page on" id="p1">
+    <div class="card">
+      <div class="card-title">在庫管理表を読み込む</div>
+      <div class="card-desc">GoogleスプレッドシートからCSVでダウンロードしたファイルをドロップしてください。品番・JANコード・商品名を読み込みます。</div>
+      <div class="drop-area" id="csv-drop">
+        <div class="drop-prompt">
+          <span class="drop-icon">📋</span>
+          <div class="drop-text">CSVファイルをここにドロップ</div>
+          <div class="drop-sub">またはクリックしてファイルを選択</div>
+        </div>
+        <div class="drop-ok">
+          <div class="ok-badge">✓</div>
+          <div>
+            <div class="ok-name" id="csv-name">—</div>
+            <div class="ok-sub" id="csv-count">—</div>
+          </div>
+        </div>
+      </div>
+      <input type="file" id="csv-input" accept=".csv">
+      <div class="actions">
+        <button class="btn btn-primary" id="btn-1to2" disabled>撮影フォルダへ →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAGE 2 -->
+  <div class="page" id="p2">
+    <div class="card">
+      <div class="card-title">撮影フォルダを選択</div>
+      <div class="card-desc">実写画像が入ったフォルダを選択してください。ファイル名は下記のルールに従ってください。</div>
+
+      <details style="margin-bottom:24px;border:1px solid var(--border);border-radius:10px;overflow:hidden">
+        <summary style="padding:13px 18px;font-size:13px;font-weight:600;cursor:pointer;background:var(--bg);list-style:none;display:flex;align-items:center;gap:8px">
+          <span style="color:var(--primary)">▶</span> ファイル名のルールを確認する
+        </summary>
+        <div style="padding:20px 22px;font-size:13px;line-height:1.7;border-top:1px solid var(--border)">
+
+          <p style="margin-bottom:14px">ファイル名は <code>品番_種別_連番.拡張子</code> の形式にしてください。</p>
+
+          <table style="width:100%;border-collapse:collapse;margin-bottom:18px;font-size:12.5px">
+            <thead>
+              <tr style="background:var(--bg)">
+                <th style="text-align:left;padding:8px 12px;border:1px solid var(--border);font-weight:600">画像の内容</th>
+                <th style="text-align:left;padding:8px 12px;border:1px solid var(--border);font-weight:600">ファイル名の例</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="padding:8px 12px;border:1px solid var(--border)">1種ずつの個別画像</td>
+                <td style="padding:8px 12px;border:1px solid var(--border)"><code>MOB0001_個別_01.jpg</code></td>
+              </tr>
+              <tr style="background:var(--bg)">
+                <td style="padding:8px 12px;border:1px solid var(--border)">グループ全種の集合画像</td>
+                <td style="padding:8px 12px;border:1px solid var(--border)"><code>MOB0001_全員集合_01.jpg</code>（代表品番1つ）</td>
+              </tr>
+              <tr>
+                <td style="padding:8px 12px;border:1px solid var(--border)">一部のセット写真</td>
+                <td style="padding:8px 12px;border:1px solid var(--border)"><code>MOB0001_MOB0002_MOB0003_セット集合_01.jpg</code>（対象品番を全て列挙）</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <p style="font-weight:600;margin-bottom:6px">連番の割り当て順</p>
+          <p style="margin-bottom:12px;color:var(--text-muted)">ツールは以下の順でJANコードの連番を割り当てます。撮影時の連番（_01など）はツールが無視するため、自由につけて構いません。</p>
+          <ol style="margin-left:18px;margin-bottom:18px">
+            <li>全員集合</li>
+            <li>セット集合</li>
+            <li>個別</li>
+          </ol>
+
+          <p style="font-weight:600;margin-bottom:6px">注意事項</p>
+          <ul style="margin-left:18px;color:var(--text-muted)">
+            <li>品番は在庫管理表の「品番」列と完全一致させてください</li>
+            <li>全員集合・セット集合は、ツールが自動で各JANコード分に複製します</li>
+            <li>ファイル名にスペースを入れないでください</li>
+            <li>対応拡張子：jpg / jpeg / png / tif / tiff</li>
+          </ul>
+        </div>
+      </details>
+      <button class="folder-pick" id="folder-btn">
+        <div id="fp-prompt" style="text-align:center">
+          <div style="font-size:38px;margin-bottom:10px">📁</div>
+          <div style="font-size:14.5px;font-weight:600;margin-bottom:4px">フォルダを選択</div>
+          <div style="font-size:13px;color:var(--text-muted)">クリックしてフォルダを指定</div>
+        </div>
+        <div id="fp-result" style="display:none;align-items:center;gap:12px;justify-content:center">
+          <div class="ok-badge">✓</div>
+          <div>
+            <div class="ok-name" id="folder-name">—</div>
+            <div class="ok-sub" id="folder-count">—</div>
+          </div>
+        </div>
+      </button>
+      <input type="file" id="folder-input" webkitdirectory multiple>
+      <div class="actions">
+        <button class="btn btn-ghost" onclick="go(1)">← 戻る</button>
+        <button class="btn btn-primary" id="btn-2to3" disabled>開始番号を設定 →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAGE 3 -->
+  <div class="page" id="p3">
+    <div class="card">
+      <div class="card-title">実写集合の開始番号</div>
+      <div class="card-desc">各商品グループで実写集合が何番目から始まるか入力してください（2D画像が終わった次の番号）。</div>
+      <div style="overflow-x:auto">
+        <table class="tbl">
+          <thead><tr><th>商品グループ</th><th>種別</th><th>開始番号</th></tr></thead>
+          <tbody id="group-rows"></tbody>
+        </table>
+      </div>
+      <div class="actions">
+        <button class="btn btn-ghost" onclick="go(2)">← 戻る</button>
+        <button class="btn btn-primary" id="btn-run">保存先を選択して実行 →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- PAGE 4 -->
+  <div class="page" id="p4">
+    <div class="card">
+      <div class="card-title">処理完了</div>
+      <div class="stats">
+        <div><div class="stat-n" id="sn-ok">0</div><div class="stat-l">ファイルをリネーム</div></div>
+        <div><div class="stat-n" id="sn-sk">0</div><div class="stat-l">スキップ</div></div>
+      </div>
+      <div class="res-list" id="res-list"></div>
+      <div id="skip-msg" class="warn" style="display:none"></div>
+      <div class="actions">
+        <button class="btn btn-ghost" onclick="go(3)">← 戻る</button>
+        <button class="btn btn-green" onclick="restart()">もう一度実行</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ── Rules panel ────────────────────────────────────────────
+function toggleRules() {
+  const panel = document.getElementById('rules-panel');
+  const isOpen = panel.style.display !== 'none';
+  panel.style.display = isOpen ? 'none' : 'block';
+  document.getElementById('rule-btn').style.background = isOpen ? 'rgba(255,255,255,0.12)' : 'rgba(255,255,255,0.25)';
+}
+
+// ── State ──────────────────────────────────────────────────
+let items = {}, photoFiles = [], targetGroups = {};
+
+// ── CSV parser ─────────────────────────────────────────────
+function parseCSV(text) {
+  const rows = [];
+  let row = [], f = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (q) {
+      if (c === '"' && text[i+1] === '"') { f += '"'; i++; }
+      else if (c === '"') q = false;
+      else f += c;
+    } else {
+      if (c === '"') q = true;
+      else if (c === ',') { row.push(f); f = ''; }
+      else if (c === '\n') { row.push(f); rows.push(row); row = []; f = ''; }
+      else if (c !== '\r') f += c;
+    }
+  }
+  if (f || row.length) { row.push(f); rows.push(row); }
+  return rows;
+}
+
+function loadItems(text) {
+  const rows = parseCSV(text);
+  let hIdx = -1, hb, sh, jn;
+  for (let i = 0; i < rows.length; i++) {
+    const hi = rows[i].indexOf('品番');
+    const ji = rows[i].findIndex(c => c.includes('JANコード') || c === 'JAN');
+    if (hi >= 0 && ji >= 0) { hIdx = i; hb = hi; sh = rows[i].indexOf('商品名'); jn = ji; break; }
+  }
+  if (hIdx < 0) throw new Error('ヘッダー行（品番・JANコード）が見つかりません');
+  const out = {};
+  for (let i = hIdx+1; i < rows.length; i++) {
+    const r = rows[i];
+    if (r.length <= Math.max(hb, sh, jn)) continue;
+    const hinban = r[hb].trim(), shohin = r[sh].trim(), jan = r[jn].trim();
+    if (!hinban || !jan || shohin.includes('BOX')) continue;
+    out[hinban] = { shohin, jan };
+  }
+  return out;
+}
+
+// ── Filename logic ──────────────────────────────────────────
+const KW = ['全員集合','セット集合','集合','セット','個別'];
+
+function parseFilename(name) {
+  const dot = name.lastIndexOf('.');
+  const stem = dot >= 0 ? name.slice(0, dot) : name;
+  const ext  = dot >= 0 ? name.slice(dot) : '';
+  const parts = stem.split('_');
+  if (parts.length < 3) return null;
+  for (const kw of KW) {
+    const idx = parts.indexOf(kw);
+    if (idx > 0) return { hinbanList: parts.slice(0, idx), shubetsu: kw, renban: parts[idx+1]||'01', ext };
+  }
+  return null;
+}
+
+const isTrade = s => s.includes('トレーディング');
+const groupOf  = s => { const m = s.match(/】(.+?)(?:：|$)/); return m ? m[1].trim() : s; };
+const kwOrder  = s => s.includes('全員') ? 0 : s.includes('セット') ? 1 : 2;
+
+// ── Core processing ─────────────────────────────────────────
+function process(startNums) {
+  const skuMap = {};
+  for (const [h, info] of Object.entries(items)) {
+    const g = groupOf(info.shohin);
+    (skuMap[g] = skuMap[g]||[]).push({ hinban: h, jan: info.jan });
+  }
+
+  const groups = {}, skipped = [];
+  for (const file of photoFiles) {
+    const p = parseFilename(file.name);
+    if (!p) { skipped.push(file.name); continue; }
+    const rep = p.hinbanList[0];
+    (groups[rep] = groups[rep]||[]).push({ file, ...p, rep });
+  }
+
+  const counters = {};
+  for (const [, info] of Object.entries(items)) {
+    const g = groupOf(info.shohin);
+    if (startNums[g] !== undefined) counters[info.jan] = startNums[g];
+  }
+
+  const all = [];
+  for (const [rep, files] of Object.entries(groups)) {
+    if (!items[rep]) { files.forEach(f => skipped.push(f.file.name)); continue; }
+    all.push(...files);
+  }
+  all.sort((a,b) => {
+    const d = kwOrder(a.shubetsu) - kwOrder(b.shubetsu);
+    return d !== 0 ? d : a.rep < b.rep ? -1 : a.rep > b.rep ? 1 : a.renban.localeCompare(b.renban);
+  });
+
+  const results = [];
+  for (const { file, hinbanList, shubetsu, renban, ext, rep } of all) {
+    if (!items[rep]) continue;
+    const info = items[rep];
+    const trading = isTrade(info.shohin);
+    const group = groupOf(info.shohin);
+
+    if (shubetsu.includes('集合')) {
+      const targets = hinbanList.length > 1
+        ? hinbanList.filter(h => items[h]).map(h => items[h].jan)
+        : (skuMap[group]||[{jan:info.jan}]).map(s => s.jan);
+      const slot = Math.max(...targets.map(j => counters[j]||1));
+      for (const j of targets) {
+        results.push({ file, newName: `${j}_${String(slot).padStart(2,'0')}${ext}` });
+        let nx = slot+1; if (trading && nx===2) nx=3; counters[j]=nx;
+      }
+    } else {
+      const slot = counters[info.jan]||1;
+      results.push({ file, newName: `${info.jan}_${String(slot).padStart(2,'0')}${ext}` });
+      let nx = slot+1; if (trading && nx===2) nx=3; counters[info.jan]=nx;
+    }
+  }
+  return { results, skipped };
+}
+
+// ── Step navigation ─────────────────────────────────────────
+function go(n) {
+  document.querySelectorAll('.page').forEach((p,i) => p.classList.toggle('on', i+1===n));
+  document.querySelectorAll('.step-tab').forEach((s,i) => {
+    s.classList.toggle('active', i+1===n);
+    s.classList.toggle('done', i+1<n);
+  });
+}
+
+function restart() {
+  items={}; photoFiles={}; targetGroups={};
+  document.getElementById('csv-drop').classList.remove('ok');
+  document.getElementById('btn-1to2').disabled=true;
+  document.getElementById('folder-btn').classList.remove('ok');
+  document.getElementById('fp-prompt').style.display='block';
+  document.getElementById('fp-result').style.display='none';
+  document.getElementById('btn-2to3').disabled=true;
+  go(1);
+}
+
+// ── Page 1: CSV ─────────────────────────────────────────────
+const csvDrop = document.getElementById('csv-drop');
+const csvInput = document.getElementById('csv-input');
+
+csvDrop.addEventListener('click', () => csvInput.click());
+csvDrop.addEventListener('dragover', e => { e.preventDefault(); csvDrop.classList.add('over'); });
+csvDrop.addEventListener('dragleave', () => csvDrop.classList.remove('over'));
+csvDrop.addEventListener('drop', e => { e.preventDefault(); csvDrop.classList.remove('over'); handleCSV(e.dataTransfer.files[0]); });
+csvInput.addEventListener('change', e => handleCSV(e.target.files[0]));
+
+function handleCSV(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      items = loadItems(e.target.result);
+      const n = Object.keys(items).length;
+      document.getElementById('csv-name').textContent = file.name;
+      document.getElementById('csv-count').textContent = `${n}件の商品を読み込みました（BOX除く）`;
+      csvDrop.classList.add('ok');
+      document.getElementById('btn-1to2').disabled = false;
+    } catch(err) { alert('CSV読み込みエラー:\n'+err.message); }
+  };
+  reader.readAsText(file, 'UTF-8');
+}
+document.getElementById('btn-1to2').addEventListener('click', () => go(2));
+
+// ── Page 2: Folder ──────────────────────────────────────────
+const folderBtn  = document.getElementById('folder-btn');
+const folderInput = document.getElementById('folder-input');
+
+folderBtn.addEventListener('click', () => folderInput.click());
+folderInput.addEventListener('change', e => {
+  const files = Array.from(e.target.files).filter(f =>
+    /\.(jpg|jpeg|png|tif|tiff)$/i.test(f.name) &&
+    !f.name.startsWith('.') &&
+    f.webkitRelativePath.split('/').length === 2
+  );
+  if (!files.length) { alert('対象の画像ファイルが見つかりませんでした。'); return; }
+  photoFiles = files;
+  const folderName = files[0].webkitRelativePath.split('/')[0];
+  document.getElementById('folder-name').textContent = folderName;
+  document.getElementById('folder-count').textContent = `${files.length}枚の画像ファイル`;
+  document.getElementById('fp-prompt').style.display = 'none';
+  document.getElementById('fp-result').style.display = 'flex';
+  folderBtn.classList.add('ok');
+  document.getElementById('btn-2to3').disabled = false;
+});
+document.getElementById('btn-2to3').addEventListener('click', buildStep3);
+
+function buildStep3() {
+  targetGroups = {};
+  for (const file of photoFiles) {
+    const p = parseFilename(file.name);
+    if (!p) continue;
+    const rep = p.hinbanList[0];
+    if (!items[rep]) continue;
+    const g = groupOf(items[rep].shohin);
+    if (!(g in targetGroups)) targetGroups[g] = isTrade(items[rep].shohin);
+  }
+  const tbody = document.getElementById('group-rows');
+  tbody.innerHTML = '';
+  Object.entries(targetGroups).sort((a,b)=>a[0].localeCompare(b[0])).forEach(([g, trade]) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${g}</td>
+      <td><span class="badge${trade?' trade':''}">${trade?'トレーディング':'オープン'}</span></td>
+      <td><input class="num-in" type="number" min="1" max="99" value="3" data-group="${g.replace(/&/g,'&amp;').replace(/"/g,'&quot;')}"></td>`;
+    tbody.appendChild(tr);
+  });
+  go(3);
+}
+
+// ── Page 3: Run ─────────────────────────────────────────────
+document.getElementById('btn-run').addEventListener('click', async () => {
+  const startNums = {};
+  document.querySelectorAll('.num-in').forEach(el => { startNums[el.dataset.group] = parseInt(el.value)||1; });
+
+  const { results, skipped } = process(startNums);
+  if (!results.length) { alert('処理対象のファイルが見つかりませんでした。\nファイル名の形式を確認してください。'); return; }
+
+  // File System Access API (Chrome / Edge)
+  if (window.showDirectoryPicker) {
+    try {
+      const dir = await window.showDirectoryPicker({ mode: 'readwrite' });
+      let out;
+      try { out = await dir.getDirectoryHandle('renamed', { create: true }); }
+      catch { out = dir; }
+      for (const { file, newName } of results) {
+        const fh = await out.getFileHandle(newName, { create: true });
+        const w  = await fh.createWritable();
+        await w.write(file);
+        await w.close();
+      }
+      showResults(results, skipped);
+      return;
+    } catch(err) {
+      if (err.name === 'AbortError') return;
+    }
+  }
+
+  // Fallback: download one by one
+  showResults(results, skipped);
+  if (confirm(`${results.length}枚のファイルを個別にダウンロードします。よろしいですか？`)) {
+    for (const { file, newName } of results) {
+      await new Promise(res => {
+        const url = URL.createObjectURL(file);
+        const a = Object.assign(document.createElement('a'), { href: url, download: newName });
+        a.click();
+        setTimeout(() => { URL.revokeObjectURL(url); res(); }, 350);
+      });
+    }
+  }
+});
+
+function showResults(results, skipped) {
+  document.getElementById('sn-ok').textContent = results.length;
+  document.getElementById('sn-sk').textContent = skipped.length;
+
+  const list = document.getElementById('res-list');
+  list.innerHTML = '';
+  results.forEach(({ file, newName }) => {
+    const d = document.createElement('div');
+    d.className = 'res-item';
+    d.innerHTML = `<span class="res-check">✓</span><span class="res-from">${file.name}</span><span class="res-arrow">→</span><span class="res-to">${newName}</span>`;
+    list.appendChild(d);
+  });
+
+  const msg = document.getElementById('skip-msg');
+  if (skipped.length) {
+    msg.style.display = 'block';
+    msg.textContent = `スキップされたファイル（${skipped.length}件）: ${skipped.join('、')}`;
+  } else {
+    msg.style.display = 'none';
+  }
+  go(4);
+}
+</script>
+</body>
+</html>
